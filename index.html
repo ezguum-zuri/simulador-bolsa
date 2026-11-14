@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulador de bolsa</title>
+<style>
+:root{
+  --bg:#f6f5f1;--card:#ffffff;--ink:#1d1d1b;--mute:#6b6a66;--line:#e4e2dc;
+  --up:#14864f;--down:#c8372d;--acc:#2f5bd3;--acc2:#e08a1e;--soft:#eef2fc;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#141413;--card:#1f1f1d;--ink:#f1efe8;--mute:#a19f98;--line:#33322f;
+  --up:#3fbf7f;--down:#ef6a5f;--acc:#7c9cff;--acc2:#f0a64a;--soft:#232a3d;}
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.45}
+header{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid var(--line);padding:10px 14px 8px}
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.top h1{font-size:17px;margin:0}
+.date{font-size:13px;color:var(--mute)}
+.total{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.ctr{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:7px 10px;cursor:pointer}
+button:active{transform:scale(.97)}
+button.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+button.buy{background:var(--up);border-color:var(--up);color:#fff}
+button.sell{background:var(--down);border-color:var(--down);color:#fff}
+button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tabs{display:flex;gap:4px;margin-top:8px}
+.tabs button{flex:1;padding:7px 4px;font-size:14px}
+main{padding:12px 14px 60px;max-width:760px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mute{color:var(--mute)}
+.small{font-size:13px}
+.up{color:var(--up)}.down{color:var(--down)}
+.num{font-variant-numeric:tabular-nums}
+canvas{width:100%;height:190px;display:block}
+.rng{display:flex;gap:4px;margin:8px 0 2px}
+.rng button{padding:4px 9px;font-size:13px}
+.list .it{display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-bottom:1px solid var(--line);cursor:pointer}
+.list .it:last-child{border-bottom:0}
+.list .it.sel{background:var(--soft);border-radius:8px}
+.tk{font-weight:700;font-size:14px}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:20px;background:var(--soft);color:var(--acc);margin-left:4px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kpi{background:var(--bg);border-radius:10px;padding:8px 10px}
+.kpi .l{font-size:12px;color:var(--mute)}
+.kpi .v{font-size:17px;font-weight:650;font-variant-numeric:tabular-nums}
+input[type=number]{font:inherit;width:100%;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.trade{display:grid;grid-template-columns:1fr auto;gap:6px;margin-top:10px}
+.trade2{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.log .e{padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.log .e:last-child{border-bottom:0}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+h2{font-size:16px;margin:0 0 8px}
+h3{font-size:15px;margin:14px 0 4px}
+p{margin:6px 0}
+details{border-bottom:1px solid var(--line);padding:8px 0}
+details:last-child{border-bottom:0}
+summary{cursor:pointer;font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:7px 4px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums}
+td:first-child,th:first-child{text-align:left}
+th{font-size:12px;color:var(--mute);font-weight:600}
+#toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;opacity:0;transition:opacity .25s;pointer-events:none;max-width:90%;text-align:center;z-index:20}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--mute);margin-top:4px}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.hidden{display:none !important}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:30;padding:20px}
+.modal .card{max-width:420px;width:100%}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div><h1>📈 Simulador de bolsa</h1><div class="date" id="fecha"></div></div>
+    <div style="text-align:right"><div class="total" id="total"></div><div class="small num" id="totalChg"></div></div>
+  </div>
+  <div class="ctr">
+    <button data-adv="1">+1 día</button>
+    <button data-adv="5">+1 semana</button>
+    <button data-adv="21">+1 mes</button>
+    <button data-adv="252">+1 año</button>
+    <button id="play" class="pri">▶ Auto</button>
+  </div>
+  <div class="tabs">
+    <button data-tab="mercado" class="on">Mercado</button>
+    <button data-tab="cartera">Cartera</button>
+    <button data-tab="noticias">Noticias</button>
+    <button data-tab="aprende">Aprende</button>
+  </div>
+</header>
+
+<main>
+  <!-- MERCADO -->
+  <section id="t-mercado">
+    <div class="card" id="detalle"></div>
+    <div class="card list" id="lista"></div>
+  </section>
+
+  <!-- CARTERA -->
+  <section id="t-cartera" class="hidden">
+    <div class="card">
+      <h2>Tu cartera vs. el índice</h2>
+      <canvas id="cvPf"></canvas>
+      <div class="legend"><span><i style="background:var(--acc)"></i>Tu cartera</span><span><i style="background:var(--acc2)"></i>Si lo hubieras metido todo en el índice el día 1</span></div>
+      <div class="rng" id="rngPf"></div>
+    </div>
+    <div class="card"><div class="grid" id="kpis"></div></div>
+    <div class="card"><h2>Posiciones</h2><div id="posiciones"></div></div>
+    <div class="card row">
+      <div class="small mute">¿Empezar de cero con 10.000 € nuevos y un mercado distinto?</div>
+      <button id="reset">Reiniciar</button>
+    </div>
+  </section>
+
+  <!-- NOTICIAS -->
+  <section id="t-noticias" class="hidden">
+    <div class="card"><h2>Noticias y movimientos</h2><div class="log" id="log"></div></div>
+  </section>
+
+  <!-- APRENDE -->
+  <section id="t-aprende" class="hidden">
+    <div class="card">
+      <h2>Cómo funciona</h2>
+      <p>Empiezas con <b>10.000 € ficticios</b>. Compras acciones de empresas inventadas, avanzas el tiempo y ves qué pasa. Los precios se mueven al azar, pero con reglas parecidas a las de la bolsa real: el mercado tiende a subir a largo plazo, hay días buenos y malos, noticias que mueven cada empresa y, de vez en cuando, crisis.</p>
+      <p class="small mute">Todo es simulado: empresas, precios y noticias son inventados. Sirve para entender mecanismos, no para predecir nada.</p>
+    </div>
+    <div class="card">
+      <h2>🧪 Experimentos para probar</h2>
+      <details><summary>1. Comprar y olvidar</summary><p>Mete todo en el <b>Fondo Índice</b> y pulsa “+1 año” diez veces sin tocar nada. Mira la rentabilidad final y cuántas veces ha habido caídas por el camino.</p></details>
+      <details><summary>2. Intenta batir al índice</summary><p>Reinicia y compra y vende a menudo intentando “adivinar” subidas. Compara al final tu línea azul con la naranja y revisa cuánto has pagado en comisiones.</p></details>
+      <details><summary>3. Todo a una carta</summary><p>Mete todo en <b>NeoBio Lab</b> (muy especulativa). Reinicia varias veces: a veces te harás rico y a veces lo perderás casi todo. Eso es el riesgo.</p></details>
+      <details><summary>4. Diversificar</summary><p>Reparte el dinero entre 5 o 6 empresas de sectores distintos. Fíjate en que la cartera se mueve menos que cada acción por separado.</p></details>
+      <details><summary>5. Aguantar una crisis</summary><p>Cuando salte una noticia de pánico en el mercado, prueba a vender todo… y en otra partida, a no hacer nada. Compara dónde estás dos años después.</p></details>
+      <details><summary>6. Cazar dividendos</summary><p>Compra Banco Cantábrico o Txoko Market y avanza un trimestre: cobrarás dividendos, pero verás que el precio baja justo esa misma cantidad.</p></details>
+    </div>
+    <div class="card">
+      <h2>📚 Conceptos clave</h2>
+      <details><summary>Acción</summary><p>Un trocito de una empresa. Si la empresa gana más (o la gente cree que ganará más), su acción tiende a valer más.</p></details>
+      <details><summary>Índice y fondo indexado</summary><p>Un índice agrupa muchas empresas (como el IBEX 35 o el MSCI World). Un fondo indexado las compra todas a la vez: no intentas elegir ganadoras, te llevas la media del mercado con comisiones bajas.</p></details>
+      <details><summary>Volatilidad (riesgo)</summary><p>Cuánto sube y baja un precio. Más volatilidad = más posibilidades de ganar mucho… y de perder mucho. En la ficha de cada valor verás su nivel de riesgo.</p></details>
+      <details><summary>Diversificación</summary><p>Repartir el dinero entre muchas empresas y sectores. Las malas noticias de una empresa pesan poco en el total. Es lo más parecido a algo “gratis” que existe en inversión.</p></details>
+      <details><summary>Dividendo</summary><p>Parte del beneficio que la empresa reparte a sus accionistas. Aquí se paga cada trimestre. El día que se paga, el precio de la acción baja más o menos lo mismo: no es dinero mágico.</p></details>
+      <details><summary>Comisiones</summary><p>Cada compra o venta cuesta 3 € + 0,1 % de la operación. Parece poco, pero si operas mucho se come la rentabilidad. Mira el contador en “Cartera”.</p></details>
+      <details><summary>Ganancia latente vs. realizada</summary><p>Mientras no vendes, la ganancia o pérdida es “latente” (en el papel). Solo se vuelve real cuando vendes. En la vida real, Hacienda tributa la ganancia realizada.</p></details>
+      <details><summary>Máxima caída (drawdown)</summary><p>La mayor bajada desde un máximo hasta un mínimo que ha sufrido tu cartera. Es la mejor medida de “cuánto se pasa mal”.</p></details>
+      <details><summary>Interés compuesto</summary><p>Las ganancias generan nuevas ganancias. Un 6 % anual durante 30 años no multiplica por 2,8 (30×6 %), sino por casi 6. El tiempo es el ingrediente principal.</p></details>
+      <details><summary>Beta</summary><p>Cuánto se mueve una acción cuando se mueve el mercado. Beta 1,5: si el mercado sube un 10 %, ella tiende a subir un 15 % (y lo mismo al bajar).</p></details>
+    </div>
+    <div class="card small mute">Esto es una herramienta educativa con datos inventados. No es asesoramiento financiero.</div>
+  </section>
+</main>
+
+<div id="toast"></div>
+<div id="modal" class="modal hidden"><div class="card"><h2 id="mT"></h2><p id="mB"></p><div class="row" style="justify-content:flex-end;margin-top:10px"><button id="mNo">Cancelar</button><button id="mOk" class="pri">Sí</button></div></div></div>
+
+<script>
+(function(){
+const DPY = 252, MU_M = 0.06, SIG_M = 0.16, CASH0 = 10000;
+const FEE_FIX = 3, FEE_PCT = 0.001;
+const fmtE = new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'});
+const fmtE0 = new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:0});
+const fmtP = v => (v>=0?'+':'') + v.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' %';
+const $ = id => document.getElementById(id);
+
+const BASE = [
+  {id:'IDX',name:'Fondo Índice Global',sector:'Fondo indexado',price:100,beta:1,sigma:0,alpha:-0.002,div:0,
+   desc:'Compra a la vez cientos de empresas de todo el mundo. Se mueve como el mercado en su conjunto. Comisión anual del 0,2 % ya descontada.'},
+  {id:'ELR',name:'Electra Renovables',sector:'Energía',price:24,beta:0.9,sigma:0.26,alpha:0.015,div:0.025,
+   desc:'Parques eólicos y solares. Crecimiento estable, sensible a los tipos de interés.'},
+  {id:'TNB',name:'TecnoNube',sector:'Tecnología',price:85,beta:1.4,sigma:0.42,alpha:0.035,div:0,
+   desc:'Servicios en la nube. Mucho crecimiento esperado y mucha volatilidad. No paga dividendo: reinvierte todo.'},
+  {id:'BCN',name:'Banco Cantábrico',sector:'Banca',price:6.2,beta:1.2,sigma:0.25,alpha:-0.01,div:0.055,
+   desc:'Banco regional. Paga un dividendo alto, pero sufre mucho en las crisis.'},
+  {id:'FRN',name:'FarmaNorte',sector:'Salud',price:48,beta:0.6,sigma:0.22,alpha:0.01,div:0.03,
+   desc:'Farmacéutica consolidada. Defensiva: la gente compra medicinas haya crisis o no.'},
+  {id:'TXK',name:'Txoko Market',sector:'Consumo',price:18,beta:0.5,sigma:0.15,alpha:0,div:0.035,
+   desc:'Cadena de supermercados. Aburrida y estable, con dividendo constante.'},
+  {id:'AER',name:'Aerovía',sector:'Aerolíneas',price:9.5,beta:1.5,sigma:0.45,alpha:-0.03,div:0,
+   desc:'Aerolínea. Muy cíclica: vuela cuando la economía va bien y se hunde en las crisis.'},
+  {id:'NBL',name:'NeoBio Lab',sector:'Biotecnología',price:3.2,beta:1,sigma:0.7,alpha:-0.04,div:0,
+   desc:'Startup biotecnológica sin beneficios. Todo depende de sus ensayos clínicos: puede multiplicarse o desplomarse.'}
+];
+
+const NEWS_UP = ['{n} presenta resultados mejores de lo esperado','{n} gana un contrato millonario','Los analistas suben la recomendación de {n}','{n} anuncia un plan de recompra de acciones','{n} lanza un producto que arrasa en ventas'];
+const NEWS_DN = ['{n} rebaja sus previsiones para el año','{n} presenta resultados decepcionantes','Dimite por sorpresa el consejero delegado de {n}','{n} recibe una multa del regulador','Un competidor le roba cuota de mercado a {n}'];
+const MKT_DN = ['Pánico en los mercados por temor a una recesión','Subida de tipos inesperada del banco central','Crisis de deuda en varios países: caídas generalizadas'];
+const MKT_UP = ['El banco central baja los tipos: subida generalizada','Datos de empleo mucho mejores de lo esperado','Acuerdo comercial global: euforia en las bolsas'];
+
+let S, playing=null, sel='IDX', rngM=126, rngP=0;
+
+function randn(){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+function pick(a){return a[Math.floor(Math.random()*a.length)];}
+function stk(id){return S.stocks.find(s=>s.id===id);}
+function fecha(d){const y=Math.floor(d/DPY)+1, m=Math.floor((d%DPY)/21)+1;return 'Año '+y+' · Mes '+Math.min(m,12)+' · Día '+d;}
+function logE(text,type){S.log.unshift({d:S.day,text,type});if(S.log.length>300)S.log.length=300;}
+
+function newGame(){
+  S={day:0,cash:CASH0,pos:{},fees:0,divs:0,trades:0,realized:0,peak:CASH0,maxDD:0,log:[],pf:[CASH0],bench:[CASH0],
+     stocks:BASE.map(b=>Object.assign({},b,{price:b.price*(0.85+Math.random()*0.3),hist:[]}))};
+  // genera ~6 meses de historia previa
+  for(let i=0;i<126;i++) moveMarket(false);
+  S.stocks.forEach(s=>s.idx0=s.price);
+  S.idx0=stk('IDX').price;
+  S.log=[];
+  logE('¡Empiezas con '+fmtE0.format(CASH0)+' ficticios! Elige un valor y pulsa Comprar.','info');
+}
+
+function moveMarket(live){
+  let m = (MU_M - SIG_M*SIG_M/2)/DPY + SIG_M/Math.sqrt(DPY)*randn();
+  if(Math.random()<0.0012){const sh=-(0.06+Math.random()*0.09);m+=sh;if(live)logE('🌩️ '+pick(MKT_DN)+' ('+fmtP(sh*100)+' el mercado)','down');}
+  else if(Math.random()<0.0012){const sh=0.03+Math.random()*0.05;m+=sh;if(live)logE('☀️ '+pick(MKT_UP)+' ('+fmtP(sh*100)+' el mercado)','up');}
+  S.stocks.forEach(s=>{
+    let r;
+    if(s.id==='IDX') r = m + s.alpha/DPY;
+    else {
+      r = s.beta*m + (s.alpha - s.sigma*s.sigma/2)/DPY + s.sigma/Math.sqrt(DPY)*randn();
+      const pE = s.id==='NBL'?0.004:0.003;
+      if(Math.random()<pE){
+        const up=Math.random()<0.5;
+        let j;
+        if(s.id==='NBL'){j=up?(0.25+Math.random()*0.6):-(0.3+Math.random()*0.35);
+          if(live)logE((up?'🧬 Ensayo clínico exitoso en ':'💥 Fracasa el ensayo clínico de ')+s.name+' ('+fmtP((Math.exp(Math.log(1+j))-1)*100)+')',up?'up':'down');}
+        else{j=up?(0.04+Math.random()*0.1):-(0.04+Math.random()*0.12);
+          if(live)logE((up?'📈 ':'📉 ')+pick(up?NEWS_UP:NEWS_DN).replace('{n}',s.name)+' ('+fmtP(j*100)+')',up?'up':'down');}
+        r+=Math.log(1+j);
+      }
+    }
+    s.prev=s.price;
+    s.price=Math.max(0.01,s.price*Math.exp(r));
+    s.hist.push(+s.price.toFixed(4));
+    if(s.hist.length>DPY*60) s.hist.shift();
+  });
+}
+
+function step(){
+  S.day++;
+  moveMarket(true);
+  // dividendos trimestrales
+  if(S.day%63===0){
+    S.stocks.forEach(s=>{
+      if(!s.div) return;
+      const dps=s.price*s.div/4;
+      s.price-=dps; s.hist[s.hist.length-1]=+s.price.toFixed(4);
+      const q=(S.pos[s.id]||{}).qty||0;
+      if(q>0){const c=q*dps;S.cash+=c;S.divs+=c;logE('💶 Cobras '+fmtE.format(c)+' de dividendo de '+s.name+' ('+fmtE.format(dps)+' por acción). El precio baja lo mismo.','info');}
+    });
+  }
+  const v=value();
+  S.pf.push(+v.toFixed(2));
+  S.bench.push(+(CASH0*stk('IDX').price/S.idx0).toFixed(2));
+  if(v>S.peak)S.peak=v;
+  const dd=(S.peak-v)/S.peak; if(dd>S.maxDD)S.maxDD=dd;
+  if(S.day%DPY===0) logE('🎆 Fin del año '+(S.day/DPY)+'. Tu cartera vale '+fmtE0.format(v)+' ('+fmtP((v/CASH0-1)*100)+' desde el inicio).','info');
+}
+
+function value(){let v=S.cash;for(const id in S.pos)v+=S.pos[id].qty*stk(id).price;return v;}
+function fee(amount){return FEE_FIX+FEE_PCT*amount;}
+
+function advance(n){for(let i=0;i<n;i++)step();render();save();}
+
+function buy(id,q){
+  const s=stk(id); q=Math.floor(q);
+  if(!(q>0))return toast('Indica cuántas acciones');
+  const cost=q*s.price, f=fee(cost);
+  if(cost+f>S.cash+1e-9)return toast('No tienes suficiente efectivo');
+  S.cash-=cost+f; S.fees+=f; S.trades++;
+  const p=S.pos[id]||(S.pos[id]={qty:0,cost:0});
+  p.qty+=q; p.cost+=cost+f;
+  logE('🛒 Compras '+q+' '+s.name+' a '+fmtE.format(s.price)+' (comisión '+fmtE.format(f)+')','info');
+  toast('Compradas '+q+' acciones de '+s.name);
+  render();save();
+}
+function sell(id,q){
+  const s=stk(id),p=S.pos[id]; q=Math.floor(q);
+  if(!p||!p.qty)return toast('No tienes acciones de este valor');
+  if(!(q>0))return toast('Indica cuántas acciones');
+  if(q>p.qty)q=p.qty;
+  const gross=q*s.price,f=Math.min(fee(gross),gross),avg=p.cost/p.qty,basis=avg*q;
+  const net=gross-f, gain=net-basis;
+  S.cash+=net;S.fees+=f;S.trades++;S.realized+=gain;
+  p.qty-=q;p.cost-=basis; if(p.qty<=0)delete S.pos[id];
+  logE('💰 Vendes '+q+' '+s.name+' a '+fmtE.format(s.price)+'. Resultado: '+(gain>=0?'+':'')+fmtE.format(gain),gain>=0?'up':'down');
+  toast((gain>=0?'Ganas ':'Pierdes ')+fmtE.format(Math.abs(gain)));
+  render();save();
+}
+
+function riskLabel(s){
+  const vol=s.id==='IDX'?SIG_M:Math.sqrt(s.sigma*s.sigma+s.beta*s.beta*SIG_M*SIG_M);
+  if(vol<0.2)return['Bajo','up'];if(vol<0.32)return['Medio',''];if(vol<0.5)return['Alto','down'];return['Muy alto','down'];
+}
+
+function chgOver(s,n){const h=s.hist;const i=Math.max(0,h.length-1-n);return (s.price/h[i]-1)*100;}
+
+/* ---------- gráficos ---------- */
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function drawChart(cv,series){
+  const dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;
+  cv.width=W*dpr;cv.height=H*dpr;const c=cv.getContext('2d');c.scale(dpr,dpr);c.clearRect(0,0,W,H);
+  const all=series.flatMap(s=>s.data);if(all.length<2)return;
+  let mn=Math.min(...all),mx=Math.max(...all);if(mx-mn<1e-9){mx+=1;mn-=1;}
+  const pad=(mx-mn)*0.08;mn-=pad;mx+=pad;
+  const L=4,R=58,T=6,B=8,n=series[0].data.length;
+  const x=i=>L+(W-L-R)*i/(n-1),y=v=>T+(H-T-B)*(1-(v-mn)/(mx-mn));
+  c.font='11px -apple-system,Segoe UI,sans-serif';c.fillStyle=css('--mute');c.strokeStyle=css('--line');c.lineWidth=1;
+  for(let k=0;k<=3;k++){const v=mn+(mx-mn)*k/3,yy=y(v);c.beginPath();c.moveTo(L,yy);c.lineTo(W-R,yy);c.stroke();
+    c.fillText(v>=1000?Math.round(v).toLocaleString('es-ES'):v.toLocaleString('es-ES',{maximumFractionDigits:2}),W-R+6,yy+4);}
+  series.forEach((s,si)=>{
+    c.beginPath();s.data.forEach((v,i)=>i?c.lineTo(x(i),y(v)):c.moveTo(x(i),y(v)));
+    c.strokeStyle=s.color;c.lineWidth=si?1.5:2;c.setLineDash(s.dash||[]);c.stroke();c.setLineDash([]);
+    if(si===0){c.lineTo(x(n-1),H-B);c.lineTo(x(0),H-B);c.closePath();c.globalAlpha=0.08;c.fillStyle=s.color;c.fill();c.globalAlpha=1;}
+  });
+}
+function rangeBtns(el,cur,cb){
+  const opts=[[21,'1M'],[126,'6M'],[252,'1A'],[1260,'5A'],[0,'Todo']];
+  el.innerHTML=opts.map(o=>'<button data-r="'+o[0]+'" class="'+(o[0]===cur?'on':'')+'">'+o[1]+'</button>').join('');
+  el.querySelectorAll('button').forEach(b=>b.onclick=()=>cb(+b.dataset.r));
+}
+const lastN=(a,n)=>n&&a.length>n+1?a.slice(-n-1):a;
+
+/* ---------- render ---------- */
+function render(){
+  const v=value();
+  $('fecha').textContent=fecha(S.day);
+  $('total').textContent=fmtE.format(v);
+  const tc=(v/CASH0-1)*100;$('totalChg').innerHTML='<span class="'+(tc>=0?'up':'down')+'">'+fmtP(tc)+'</span> <span class="mute">desde el inicio</span>';
+  if(!$('t-mercado').classList.contains('hidden'))renderMercado();
+  if(!$('t-cartera').classList.contains('hidden'))renderCartera();
+  if(!$('t-noticias').classList.contains('hidden'))renderLog();
+}
+
+function renderMercado(){
+  const s=stk(sel),p=S.pos[sel],q=p?p.qty:0,d=chgOver(s,1),[rl,rc]=riskLabel(s);
+  const maxQ=Math.max(0,Math.floor((S.cash-FEE_FIX)/(s.price*(1+FEE_PCT))));
+  const D=$('detalle');
+  if(!D.dataset.id||D.dataset.id!==sel){
+    D.dataset.id=sel;
+    D.innerHTML=`<div class="row"><div><span class="tk">${s.name}</span><span class="tag">${s.sector}</span></div></div>
+      <div class="row" style="margin-top:4px"><div class="total" id="dP"></div><div class="num" id="dC"></div></div>
+      <canvas id="cvM"></canvas><div class="rng" id="rngM"></div>
+      <p class="small mute">${s.desc}</p>
+      <div class="grid small" id="dInfo"></div>
+      <div class="trade"><input type="number" id="qty" min="1" step="1" placeholder="Nº de acciones" inputmode="numeric"><button id="bMax">Máx</button></div>
+      <div class="small mute" id="est" style="margin-top:4px"></div>
+      <div class="trade2"><button class="buy" id="bBuy">Comprar</button><button class="sell" id="bSell">Vender</button></div>`;
+    $('qty').oninput=updEst;
+    $('bMax').onclick=()=>{const s2=stk(sel);$('qty').value=Math.max(0,Math.floor((S.cash-FEE_FIX)/(s2.price*(1+FEE_PCT))))||'';updEst();};
+    $('bBuy').onclick=()=>buy(sel,+$('qty').value);
+    $('bSell').onclick=()=>sell(sel,+$('qty').value);
+  }
+  $('dP').textContent=fmtE.format(s.price);
+  $('dC').innerHTML='<span class="'+(d>=0?'up':'down')+'">'+fmtP(d)+'</span> <span class="mute small">hoy</span>';
+  const y1=chgOver(s,252);
+  $('dInfo').innerHTML=`<div class="kpi"><div class="l">Riesgo</div><div class="v ${rc}">${rl}</div></div>
+    <div class="kpi"><div class="l">Dividendo anual</div><div class="v">${s.div?(s.div*100).toLocaleString('es-ES')+' %':'—'}</div></div>
+    <div class="kpi"><div class="l">Últimos 12 meses</div><div class="v ${y1>=0?'up':'down'}">${fmtP(y1)}</div></div>
+    <div class="kpi"><div class="l">Tienes</div><div class="v">${q} acc.</div></div>`;
+  rangeBtns($('rngM'),rngM,r=>{rngM=r;renderMercado();});
+  const data=lastN(s.hist,rngM);
+  drawChart($('cvM'),[{data,color:data[data.length-1]>=data[0]?css('--up'):css('--down')}]);
+  updEst();
+  $('lista').innerHTML='<h2>Valores</h2>'+S.stocks.map(x=>{const c=chgOver(x,1),h=S.pos[x.id];return `<div class="it ${x.id===sel?'sel':''}" data-id="${x.id}">
+    <div><div class="tk">${x.name}${h?' <span class="tag">'+h.qty+'</span>':''}</div><div class="small mute">${x.sector}</div></div>
+    <div style="text-align:right" class="num"><div>${fmtE.format(x.price)}</div><div class="small ${c>=0?'up':'down'}">${fmtP(c)}</div></div></div>`;}).join('');
+  $('lista').querySelectorAll('.it').forEach(e=>e.onclick=()=>{sel=e.dataset.id;renderMercado();window.scrollTo({top:0,behavior:'smooth'});});
+}
+function updEst(){
+  const s=stk(sel),q=Math.floor(+$('qty').value||0);
+  if(q>0){const a=q*s.price;$('est').innerHTML='≈ '+fmtE.format(a)+' + comisión '+fmtE.format(fee(a))+' · Efectivo disponible: '+fmtE.format(S.cash);}
+  else $('est').textContent='Efectivo disponible: '+fmtE.format(S.cash);
+}
+
+function renderCartera(){
+  rangeBtns($('rngPf'),rngP,r=>{rngP=r;renderCartera();});
+  drawChart($('cvPf'),[{data:lastN(S.pf,rngP),color:css('--acc')},{data:lastN(S.bench,rngP),color:css('--acc2'),dash:[5,4]}]);
+  const v=value(),inv=v-S.cash,b=S.bench[S.bench.length-1],yrs=S.day/DPY;
+  const cagr=yrs>=1?(Math.pow(v/CASH0,1/yrs)-1)*100:null;
+  const k=(l,val,cl)=>`<div class="kpi"><div class="l">${l}</div><div class="v ${cl||''}">${val}</div></div>`;
+  $('kpis').innerHTML=
+    k('Valor total',fmtE0.format(v))+k('Efectivo',fmtE0.format(S.cash))+
+    k('Rentabilidad total',fmtP((v/CASH0-1)*100),v>=CASH0?'up':'down')+
+    k('El índice habría hecho',fmtP((b/CASH0-1)*100),b>=CASH0?'up':'down')+
+    k('Rentab. anual media',cagr===null?'— (1 año mín.)':fmtP(cagr),cagr===null?'':cagr>=0?'up':'down')+
+    k('Máxima caída',fmtP(-S.maxDD*100),S.maxDD>0?'down':'')+
+    k('Comisiones pagadas',fmtE.format(S.fees),S.fees>0?'down':'')+
+    k('Dividendos cobrados',fmtE.format(S.divs),S.divs>0?'up':'')+
+    k('Operaciones',S.trades)+k('Ganancia realizada',fmtE.format(S.realized),S.realized>=0?'up':'down');
+  const ids=Object.keys(S.pos);
+  if(!ids.length){$('posiciones').innerHTML='<p class="mute">No tienes acciones. Ve a Mercado y compra algo.</p>';return;}
+  $('posiciones').innerHTML='<table><tr><th>Valor</th><th>Acc.</th><th>Valor €</th><th>Peso</th><th>+/−</th></tr>'+ids.map(id=>{
+    const p=S.pos[id],s=stk(id),val=p.qty*s.price,g=val-p.cost,gp=g/p.cost*100;
+    return `<tr data-id="${id}" style="cursor:pointer"><td><b>${s.name}</b><div class="small mute">Medio ${fmtE.format(p.cost/p.qty)}</div></td><td>${p.qty}</td><td>${fmtE0.format(val)}</td><td>${(val/v*100).toFixed(0)} %</td><td class="${g>=0?'up':'down'}">${fmtE0.format(g)}<div class="small">${fmtP(gp)}</div></td></tr>`;
+  }).join('')+'</table><p class="small mute">La ganancia es latente hasta que vendes. Incluye las comisiones de compra. Toca un valor para operar.</p>';
+  $('posiciones').querySelectorAll('tr[data-id]').forEach(r=>r.onclick=()=>{sel=r.dataset.id;tab('mercado');});
+}
+
+function renderLog(){
+  const col={up:'var(--up)',down:'var(--down)',info:'var(--acc)'};
+  $('log').innerHTML=S.log.length?S.log.slice(0,150).map(e=>`<div class="e"><span class="dot" style="background:${col[e.type]}"></span>${e.text}<div class="small mute">${fecha(e.d)}</div></div>`).join(''):'<p class="mute">Aún no ha pasado nada. Avanza el tiempo.</p>';
+}
+
+/* ---------- UI ---------- */
+function tab(t){
+  document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
+  ['mercado','cartera','noticias','aprende'].forEach(x=>$('t-'+x).classList.toggle('hidden',x!==t));
+  if(t==='mercado')$('detalle').dataset.id='';
+  render();
+}
+let tt;function toast(m){const e=$('toast');e.textContent=m;e.style.opacity=1;clearTimeout(tt);tt=setTimeout(()=>e.style.opacity=0,2200);}
+function ask(t,b,ok){$('mT').textContent=t;$('mB').textContent=b;$('modal').classList.remove('hidden');
+  $('mOk').onclick=()=>{$('modal').classList.add('hidden');ok();};$('mNo').onclick=()=>$('modal').classList.add('hidden');}
+
+document.querySelectorAll('[data-adv]').forEach(b=>b.onclick=()=>advance(+b.dataset.adv));
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>tab(b.dataset.tab));
+$('play').onclick=()=>{
+  if(playing){clearInterval(playing);playing=null;$('play').textContent='▶ Auto';$('play').classList.add('pri');}
+  else{playing=setInterval(()=>advance(2),120);$('play').textContent='⏸ Pausa';$('play').classList.remove('pri');}
+};
+$('reset').onclick=()=>ask('¿Reiniciar la partida?','Perderás la cartera actual y empezarás con 10.000 € en un mercado nuevo.',()=>{newGame();sel='IDX';tab('mercado');save();toast('Nueva partida');});
+window.addEventListener('resize',()=>render());
+
+let lastSave=0;
+function save(){const now=Date.now();if(now-lastSave<1500)return;lastSave=now;try{localStorage.setItem('simBolsa1',JSON.stringify(S));}catch(e){}}
+window.addEventListener('pagehide',()=>{lastSave=0;save();});
+try{const r=localStorage.getItem('simBolsa1');if(r){S=JSON.parse(r);}}catch(e){}
+if(!S||!S.stocks)newGame();
+render();
+})();
+</script>
+</body>
+</html>

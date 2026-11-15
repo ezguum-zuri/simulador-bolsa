@@ -28,7 +28,10 @@ button.buy{background:var(--up);border-color:var(--up);color:#fff}
 button.sell{background:var(--down);border-color:var(--down);color:#fff}
 button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .tabs{display:flex;gap:4px;margin-top:8px}
-.tabs button{flex:1;padding:7px 4px;font-size:14px}
+.tabs button{flex:1;padding:7px 2px;font-size:13px;white-space:nowrap}
+.strat{display:block;width:100%;text-align:left;margin-bottom:8px;padding:10px 12px}
+.strat.on{background:var(--soft);color:var(--ink);border:2px solid var(--acc)}
+.strat b{display:block;margin-bottom:2px}
 main{padding:12px 14px 60px;max-width:760px;margin:0 auto}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
 .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
@@ -68,6 +71,9 @@ th{font-size:12px;color:var(--mute);font-weight:600}
 .legend{display:flex;gap:14px;font-size:12px;color:var(--mute);margin-top:4px}
 .legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
 .hidden{display:none !important}
+#coach{position:fixed;left:0;right:0;bottom:0;z-index:25;max-height:72vh;overflow-y:auto;padding:0 10px 10px;padding-bottom:max(10px,env(safe-area-inset-bottom))}
+#coach .cIn{max-width:740px;margin:0 auto;background:var(--card);border:2px solid var(--acc);border-radius:18px;padding:16px;box-shadow:0 -6px 30px rgba(0,0,0,.25);font-size:15px;line-height:1.5}
+#coach .cH{font-weight:700;font-size:16px;margin-bottom:8px}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:30;padding:20px}
 .modal .card{max-width:420px;width:100%}
 </style>
@@ -88,6 +94,7 @@ th{font-size:12px;color:var(--mute);font-weight:600}
   <div class="tabs">
     <button data-tab="mercado" class="on">Mercado</button>
     <button data-tab="cartera">Cartera</button>
+    <button data-tab="agente">🤖 Agente</button>
     <button data-tab="noticias">Noticias</button>
     <button data-tab="aprende">Aprende</button>
   </div>
@@ -116,6 +123,9 @@ th{font-size:12px;color:var(--mute);font-weight:600}
     </div>
   </section>
 
+  <!-- AGENTE -->
+  <section id="t-agente" class="hidden"><div id="agBox"></div></section>
+
   <!-- NOTICIAS -->
   <section id="t-noticias" class="hidden">
     <div class="card"><h2>Noticias y movimientos</h2><div class="log" id="log"></div></div>
@@ -125,8 +135,14 @@ th{font-size:12px;color:var(--mute);font-weight:600}
   <section id="t-aprende" class="hidden">
     <div class="card">
       <h2>Cómo funciona</h2>
-      <p>Empiezas con <b>10.000 € ficticios</b>. Compras acciones de empresas inventadas, avanzas el tiempo y ves qué pasa. Los precios se mueven al azar, pero con reglas parecidas a las de la bolsa real: el mercado tiende a subir a largo plazo, hay días buenos y malos, noticias que mueven cada empresa y, de vez en cuando, crisis.</p>
+      <p>Empiezas con <b>10.000 € ficticios</b>. Compras acciones de empresas inventadas, avanzas el tiempo y ves qué pasa. Los precios se mueven al azar, pero calibrados con la historia real de la bolsa mundial:</p>
+      <p class="small">• El mercado sube de media en torno a un <b>7 % al año</b> a largo plazo.<br>• En un año normal oscila un ~15 %: hay años de +25 % y años de −15 %.<br>• Más o menos <b>una crisis cada 7 años</b>, con caídas del 20-35 % que duran meses y tardan uno o varios años en recuperarse.<br>• Cada empresa tiene además sus propias noticias, buenas y malas.</p>
       <p class="small mute">Todo es simulado: empresas, precios y noticias son inventados. Sirve para entender mecanismos, no para predecir nada.</p>
+    </div>
+    <div class="card">
+      <h2>🎓 Guía</h2>
+      <div class="row"><label for="guideOn">Explicarme lo que pasa mientras juego</label><input type="checkbox" id="guideOn" style="width:22px;height:22px"></div>
+      <div class="row" style="margin-top:10px"><span class="small mute">¿Quieres volver a ver todas las explicaciones?</span><button id="guideReset">Repetir guía</button></div>
     </div>
     <div class="card">
       <h2>🧪 Experimentos para probar</h2>
@@ -154,12 +170,25 @@ th{font-size:12px;color:var(--mute);font-weight:600}
   </section>
 </main>
 
+<div id="coach" class="hidden">
+  <div class="cIn">
+    <div class="cH">🎓 <span id="cT"></span></div>
+    <div id="cB"></div>
+    <div class="row" style="margin-top:12px"><span class="small mute" id="cN"></span><button class="pri" id="cOk">Entendido</button></div>
+  </div>
+</div>
 <div id="toast"></div>
 <div id="modal" class="modal hidden"><div class="card"><h2 id="mT"></h2><p id="mB"></p><div class="row" style="justify-content:flex-end;margin-top:10px"><button id="mNo">Cancelar</button><button id="mOk" class="pri">Sí</button></div></div></div>
 
 <script>
 (function(){
-const DPY = 252, MU_M = 0.06, SIG_M = 0.16, CASH0 = 10000;
+const DPY = 252, CASH0 = 10000;
+// Motor calibrado con la historia de la bolsa mundial: ~7 %/año a largo plazo, ~16-19 % de
+// volatilidad anual, rachas de calma y de nervios (volatilidad agrupada, colas gruesas) y
+// sustos bruscos ocasionales. Resultado: ~3 de cada 10 años en negativo y crisis del 20-50 %.
+const MU_M = 0.08, SIG_M = 0.15, G_A = 0.08, G_B = 0.91, P_CRASH = 1/(8*DPY);
+const LV = SIG_M*SIG_M/DPY, H_MAX = 0.9*0.9/DPY;
+function rt5(){let c=0;for(let i=0;i<5;i++){const z=randn();c+=z*z;}return randn()/Math.sqrt(c/5)*Math.sqrt(3/5);}
 const FEE_FIX = 3, FEE_PCT = 0.001;
 const fmtE = new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'});
 const fmtE0 = new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:0});
@@ -181,7 +210,7 @@ const BASE = [
    desc:'Cadena de supermercados. Aburrida y estable, con dividendo constante.'},
   {id:'AER',name:'Aerovía',sector:'Aerolíneas',price:9.5,beta:1.5,sigma:0.45,alpha:-0.03,div:0,
    desc:'Aerolínea. Muy cíclica: vuela cuando la economía va bien y se hunde en las crisis.'},
-  {id:'NBL',name:'NeoBio Lab',sector:'Biotecnología',price:3.2,beta:1,sigma:0.7,alpha:-0.04,div:0,
+  {id:'NBL',name:'NeoBio Lab',sector:'Biotecnología',price:3.2,beta:1,sigma:0.6,alpha:0,div:0,
    desc:'Startup biotecnológica sin beneficios. Todo depende de sus ensayos clínicos: puede multiplicarse o desplomarse.'}
 ];
 
@@ -199,20 +228,35 @@ function fecha(d){const y=Math.floor(d/DPY)+1, m=Math.floor((d%DPY)/21)+1;return
 function logE(text,type){S.log.unshift({d:S.day,text,type});if(S.log.length>300)S.log.length=300;}
 
 function newGame(){
+  const prev=S;
   S={day:0,cash:CASH0,pos:{},fees:0,divs:0,trades:0,realized:0,peak:CASH0,maxDD:0,log:[],pf:[CASH0],bench:[CASH0],
+     bear:0,inCrash:false,crashDay:0,idxPeak:0,
+     guide:prev?prev.guide!==false:true, seen:prev&&prev.seen?prev.seen:{},
      stocks:BASE.map(b=>Object.assign({},b,{price:b.price*(0.85+Math.random()*0.3),hist:[]}))};
-  // genera ~6 meses de historia previa
-  for(let i=0;i<126;i++) moveMarket(false);
-  S.stocks.forEach(s=>s.idx0=s.price);
-  S.idx0=stk('IDX').price;
+  // genera ~1 año de historia previa
+  for(let i=0;i<252;i++) moveMarket(false);
+  S.bear=0;
+  S.idx0=stk('IDX').price; S.idxPeak=Math.max(...stk('IDX').hist);
   S.log=[];
   logE('¡Empiezas con '+fmtE0.format(CASH0)+' ficticios! Elige un valor y pulsa Comprar.','info');
+  coach('welcome','Bienvenido a la bolsa 👋',
+    '<b>¿Qué es la bolsa?</b> Es un mercado donde se compran y venden <b>acciones</b>: trocitos de empresas. Si compras una acción de una empresa, eres dueño de una pequeñísima parte de ella. Si a la empresa le va bien (gana más dinero), su acción suele valer más; si le va mal, menos.<br><br>'+
+    '<b>Tienes 10.000 € ficticios.</b> Así se juega:<br>1️⃣ Arriba ves el <b>Fondo Índice Global</b>. Es la forma más sencilla de invertir: compra a la vez cientos de empresas.<br>2️⃣ Abajo, en “Valores”, hay empresas concretas que puedes comprar por separado.<br>3️⃣ Para comprar, escribe cuántas acciones quieres (o pulsa <b>Máx</b>) y pulsa <b>Comprar</b>.<br>4️⃣ Luego avanza el tiempo con los botones de arriba (+1 día, +1 mes…).<br><br>'+
+    'Te iré explicando lo que pase. El mercado imita el comportamiento real de la bolsa: sube de media un ~7 % al año, pero con años malos y crisis por el camino.');
 }
 
 function moveMarket(live){
-  let m = (MU_M - SIG_M*SIG_M/2)/DPY + SIG_M/Math.sqrt(DPY)*randn();
-  if(Math.random()<0.0012){const sh=-(0.06+Math.random()*0.09);m+=sh;if(live)logE('🌩️ '+pick(MKT_DN)+' ('+fmtP(sh*100)+' el mercado)','down');}
-  else if(Math.random()<0.0012){const sh=0.03+Math.random()*0.05;m+=sh;if(live)logE('☀️ '+pick(MKT_UP)+' ('+fmtP(sh*100)+' el mercado)','up');}
+  if(!S.h) S.h = LV;
+  let e = Math.sqrt(S.h)*rt5();
+  if(Math.random()<P_CRASH) e += -(0.05+Math.random()*0.05);
+  const m = MU_M/DPY + e;
+  S.h = Math.min(H_MAX, LV*(1-G_A-G_B) + G_A*e*e + G_B*S.h);
+  if(live){
+    if(m<-0.035) logE('🌩️ '+pick(MKT_DN)+' ('+fmtP(m*100)+' el mercado hoy)','down');
+    else if(m>0.03) logE('☀️ '+pick(MKT_UP)+' ('+fmtP(m*100)+' el mercado hoy)','up');
+  }
+  if(live && Math.abs(m)>0.022) coach('bigDay','Un día movido en la bolsa',
+    'Hoy el mercado se ha movido un <b>'+fmtP(m*100)+'</b> en un solo día. Lo normal es moverse menos del 1 %. Estos días fuertes suelen llegar por noticias de la economía (tipos de interés, empleo, guerras, elecciones…).<br><br>Lo importante: <b>los días sueltos casi no importan</b> a largo plazo. Los inversores que mejor les va suelen ser los que menos miran la cotización.');
   S.stocks.forEach(s=>{
     let r;
     if(s.id==='IDX') r = m + s.alpha/DPY;
@@ -227,6 +271,8 @@ function moveMarket(live){
         else{j=up?(0.04+Math.random()*0.1):-(0.04+Math.random()*0.12);
           if(live)logE((up?'📈 ':'📉 ')+pick(up?NEWS_UP:NEWS_DN).replace('{n}',s.name)+' ('+fmtP(j*100)+')',up?'up':'down');}
         r+=Math.log(1+j);
+        if(live && S.pos[s.id]) coach('newsOwn','Una noticia sobre una empresa tuya',
+          'Ha salido una noticia sobre <b>'+s.name+'</b> y su acción se ha movido un <b>'+fmtP(j*100)+'</b> de golpe, mientras el resto del mercado seguía a lo suyo.<br><br>Esto es el <b>riesgo de empresa</b>: algo que le pasa solo a esa compañía (unos resultados, un contrato, un escándalo). Con un fondo índice este golpe casi no se nota, porque esa empresa es una entre cientos. Por eso se dice que <b>no hay que poner todos los huevos en la misma cesta</b>.');
       }
     }
     s.prev=s.price;
@@ -245,22 +291,80 @@ function step(){
       if(!s.div) return;
       const dps=s.price*s.div/4;
       s.price-=dps; s.hist[s.hist.length-1]=+s.price.toFixed(4);
+      if(S.ag && S.ag.pos[s.id]){const c=S.ag.pos[s.id]*dps;S.ag.cash+=c;S.ag.divs+=c;}
       const q=(S.pos[s.id]||{}).qty||0;
-      if(q>0){const c=q*dps;S.cash+=c;S.divs+=c;logE('💶 Cobras '+fmtE.format(c)+' de dividendo de '+s.name+' ('+fmtE.format(dps)+' por acción). El precio baja lo mismo.','info');}
+      if(q>0){const c=q*dps;S.cash+=c;S.divs+=c;logE('💶 Cobras '+fmtE.format(c)+' de dividendo de '+s.name+' ('+fmtE.format(dps)+' por acción). El precio baja lo mismo.','info');
+        coach('firstDiv','Has cobrado tu primer dividendo 💶',
+          s.name+' reparte parte de sus beneficios entre sus dueños, y tú eres uno de ellos: te ha ingresado <b>'+fmtE.format(c)+'</b> en efectivo.<br><br>Fíjate en un detalle que confunde a mucha gente: <b>ese mismo día la acción baja más o menos lo que ha pagado</b>. La empresa tiene ese dinero de menos, así que vale menos. El dividendo no es dinero gratis: es una parte de tu inversión que te devuelven.<br><br>En la vida real, Hacienda se queda una parte (en torno al 19-20 %, retenida directamente). El dinero queda en tu efectivo: puedes reinvertirlo comprando más.');}
     });
   }
   const v=value();
   S.pf.push(+v.toFixed(2));
-  S.bench.push(+(CASH0*stk('IDX').price/S.idx0).toFixed(2));
+  const idxP=stk('IDX').price;
+  S.bench.push(+(CASH0*idxP/S.idx0).toFixed(2));
   if(v>S.peak)S.peak=v;
   const dd=(S.peak-v)/S.peak; if(dd>S.maxDD)S.maxDD=dd;
-  if(S.day%DPY===0) logE('🎆 Fin del año '+(S.day/DPY)+'. Tu cartera vale '+fmtE0.format(v)+' ('+fmtP((v/CASH0-1)*100)+' desde el inicio).','info');
+  if(S.ag) agentStep(v);
+  // seguimiento de crisis y recuperación del mercado
+  if(idxP>=S.idxPeak){
+    if(S.inCrash){const t=S.day-S.crashDay;S.inCrash=false;
+      logE('🏁 El mercado ha recuperado su máximo anterior, '+(t/DPY).toFixed(1).replace('.',',')+' años después del inicio de la crisis.','up');
+      coach('recovered','El mercado se ha recuperado 🏁',
+        'El índice ha vuelto a su máximo de antes de la crisis. Ha tardado <b>'+(t/DPY).toFixed(1).replace('.',',')+' años</b>.<br><br>En la historia real ha pasado siempre igual con los índices mundiales: tras cada crisis (2000, 2008, 2020, 2022) se acabó recuperando, aunque a veces tardó varios años. Quien vendió con miedo en lo más bajo convirtió una pérdida temporal en una pérdida real. Quien aguantó (o siguió comprando) lo recuperó todo.');}
+    S.idxPeak=idxP;
+  } else if(!S.inCrash && idxP<S.idxPeak*0.8){S.inCrash=true;S.crashDay=S.day;
+    logE('🐻 Mercado bajista: el índice ya cae más de un 20 % desde su máximo.','down');coachBear();}
+  if(S.maxDD>0.2 && v<S.peak*0.8) coach('pfDown','Tu cartera ha caído más de un 20 %',
+    'Ahora mismo tu cartera vale un <b>'+fmtP(-(S.peak-v)/S.peak*100)+'</b> respecto a su mejor momento. Esto se llama <b>drawdown</b> (caída desde el máximo) y es la parte más dura de invertir.<br><br>Es el momento en que mucha gente vende por miedo… y suele ser el peor momento para hacerlo. Pregúntate: ¿ha cambiado algo de verdad en las empresas que tengo, o solo está todo el mercado asustado? Si es lo segundo, la historia dice que lo sensato es esperar.');
+  // dinero parado
+  if(S.day===63 && S.cash>value()*0.5) coach('cashIdle','Tienes mucho dinero sin invertir',
+    'Más de la mitad de tu dinero sigue en efectivo. El efectivo no sube ni baja… pero en la vida real la <b>inflación</b> (que los precios suben ~2-3 % al año) hace que cada año compre menos cosas.<br><br>No es obligatorio invertirlo todo: lo sensato es tener un colchón para emergencias fuera de la bolsa e invertir solo el dinero que no vayas a necesitar en muchos años.');
+  if(S.day%DPY===0){
+    const y=S.day/DPY, rv=(v/CASH0-1)*100, ri=(S.bench[S.bench.length-1]/CASH0-1)*100;
+    logE('🎆 Fin del año '+y+'. Tu cartera vale '+fmtE0.format(v)+' ('+fmtP(rv)+' desde el inicio).','info');
+    if(y===1) coach('year1','Primer año completado 🎆',
+      'Tu cartera ha hecho un <b>'+fmtP(rv)+'</b> este año. Si lo hubieras metido todo en el fondo índice el primer día, llevarías un <b>'+fmtP(ri)+'</b>.<br><br>Esa comparación es la clave de todo: <b>el índice es tu vara de medir</b>. Si eliges acciones tú mismo y no le ganas al índice a largo plazo, te habría ido mejor comprando el índice y olvidándote. La mayoría de los profesionales no lo consiguen.<br><br>Un año es muy poco para sacar conclusiones: un año la bolsa puede subir un 25 % y al siguiente bajar un 15 %. Sigue avanzando.');
+    if(y===10) coach('year10','10 años invirtiendo',
+      'Has llegado a <b>'+fmtE0.format(v)+'</b> ('+fmtP(rv)+'). El índice habría llegado a <b>'+fmtE0.format(S.bench[S.bench.length-1])+'</b>.<br><br>Fíjate en el <b>interés compuesto</b>: las ganancias generan nuevas ganancias. Un 7 % anual no da un 70 % en 10 años, sino casi un 100 %. Y en 30 años, multiplica tu dinero por más de 7. Por eso el ingrediente más importante de la inversión es <b>el tiempo</b>, más que acertar con la empresa.');
+  }
+}
+
+/* ---------- guía ---------- */
+let coachQ=[];
+function coach(key,title,html){
+  if(!S.guide || S.seen[key]) return;
+  S.seen[key]=1; coachQ.push({title,html});
+  if(playing) stopPlay();
+  showCoach();
+}
+function showCoach(){
+  const c=coachQ[0], el=$('coach');
+  if(!c){el.classList.add('hidden');return;}
+  $('cT').textContent=c.title; $('cB').innerHTML=c.html;
+  $('cN').textContent=coachQ.length>1?('Quedan '+(coachQ.length-1)+' más'):'';
+  el.classList.remove('hidden'); el.scrollTop=0;
+}
+function coachBear(){
+  coach('bear','Empieza una crisis en la bolsa 🌩️',
+    'El índice ha caído más de un <b>20 %</b> desde su máximo. Esto se llama un <b>mercado bajista</b> (o “mercado oso” 🐻).<br><br>En la realidad pasa más o menos <b>una vez cada 6-8 años</b> (2000, 2008, 2020, 2022…). Las caídas típicas son del 20 al 35 %, y en las peores hasta el 50 %. Nadie sabe cuándo termina: puede rebotar en semanas o seguir cayendo meses.<br><br>Prueba a no hacer nada y mira qué pasa en los próximos años. Si tienes efectivo, piensa que ahora las acciones están “de rebajas”.');
 }
 
 function value(){let v=S.cash;for(const id in S.pos)v+=S.pos[id].qty*stk(id).price;return v;}
 function fee(amount){return FEE_FIX+FEE_PCT*amount;}
 
-function advance(n){for(let i=0;i<n;i++)step();render();save();}
+function advance(n){
+  for(let i=0;i<n;i++)step();
+  if(!Object.keys(S.pos).length) coach('noInvest','El tiempo pasa… pero no has invertido',
+    'Has avanzado el tiempo sin comprar nada, así que tu dinero no se ha movido. Para participar tienes que <b>comprar</b> algo primero.<br><br>Si no sabes por dónde empezar: el <b>Fondo Índice Global</b> es la opción más sencilla. Pulsa <b>Máx</b> y luego <b>Comprar</b>.');
+  else {
+    const v=value(), inv=S.pf[S.pf.length-1-n]||CASH0, d=(v/inv-1)*100;
+    coach('firstMove','Tu dinero ya se mueve',
+      'Desde la última vez, tu cartera ha cambiado un <b>'+fmtP(d)+'</b>. Los precios cambian cada día porque millones de personas compran y venden según lo que esperan de cada empresa y de la economía.<br><br>'+
+      'Ojo: mientras no vendas, esa ganancia o pérdida es <b>latente</b> (solo en el papel). Puedes ver el detalle en la pestaña <b>Cartera</b>.<br><br>Consejo: prueba a avanzar de mes en mes o de año en año. Mirar la bolsa cada día pone nervioso y no ayuda a decidir mejor.');
+  }
+  render();save();
+}
+function stopPlay(){if(playing){clearInterval(playing);playing=null;$('play').textContent='▶ Auto';$('play').classList.add('pri');}}
 
 function buy(id,q){
   const s=stk(id); q=Math.floor(q);
@@ -272,6 +376,16 @@ function buy(id,q){
   p.qty+=q; p.cost+=cost+f;
   logE('🛒 Compras '+q+' '+s.name+' a '+fmtE.format(s.price)+' (comisión '+fmtE.format(f)+')','info');
   toast('Compradas '+q+' acciones de '+s.name);
+  coach('firstBuy','¡Ya eres inversor! 🛒',
+    'Has comprado <b>'+q+' acciones de '+s.name+'</b> por '+fmtE.format(cost)+'.<br><br>'+
+    'Has pagado una <b>comisión</b> de '+fmtE.format(f)+' al “banco” o bróker que hace la operación. En la vida real casi todos cobran algo por comprar y por vender, así que <b>cada operación te cuesta dinero</b>: por eso conviene no comprar y vender cada dos por tres.<br><br>'+
+    (id==='IDX'?'Has elegido el fondo índice: tu dinero queda repartido entre cientos de empresas a la vez. ':'Has elegido una empresa concreta: tu dinero depende de cómo le vaya solo a ella. ')+
+    'Ahora pulsa <b>+1 mes</b> para ver qué pasa.');
+  const tot=value(), w=p.qty*s.price/tot;
+  if(id!=='IDX' && w>0.5) coach('concentration','Mucho dinero en una sola empresa',
+    'Tienes más del <b>'+Math.round(w*100)+' %</b> de tu dinero en '+s.name+'. Si a esa empresa le pasa algo malo (un escándalo, unos malos resultados, que la supere un competidor), te afectará muchísimo.<br><br>Muchas empresas que parecían imparables acabaron hundiéndose. Repartir el dinero entre muchas empresas y sectores se llama <b>diversificar</b>, y es la regla más básica para reducir el riesgo sin renunciar a la rentabilidad.');
+  if(S.trades===12) coach('trades','Llevas muchas operaciones',
+    'Has hecho 12 operaciones y llevas <b>'+fmtE.format(S.fees)+'</b> pagados en comisiones. Cada euro de comisión es un euro que deja de crecer para ti.<br><br>Los estudios dicen que los inversores que más compran y venden son los que peor rentabilidad obtienen, por comisiones y porque suelen comprar cuando ya ha subido y vender cuando ya ha bajado.');
   render();save();
 }
 function sell(id,q){
@@ -285,6 +399,12 @@ function sell(id,q){
   p.qty-=q;p.cost-=basis; if(p.qty<=0)delete S.pos[id];
   logE('💰 Vendes '+q+' '+s.name+' a '+fmtE.format(s.price)+'. Resultado: '+(gain>=0?'+':'')+fmtE.format(gain),gain>=0?'up':'down');
   toast((gain>=0?'Ganas ':'Pierdes ')+fmtE.format(Math.abs(gain)));
+  if(gain<0 && S.inCrash) coach('panicSell','Vender durante una crisis',
+    'Acabas de vender con pérdidas mientras el mercado está en plena caída. Es la reacción más humana… y la que más dinero hace perder a los inversores.<br><br>Al vender, la pérdida deja de ser temporal y se vuelve <b>real</b>. Y para volver a entrar tendrás que acertar el momento, cosa que casi nadie consigue: los mejores días de la bolsa suelen llegar justo en medio de las crisis. No pasa nada, aquí estás para aprender: mira qué hace el mercado en los próximos años.');
+  coach('firstSell','Tu primera venta 💰',
+    'Has vendido '+q+' acciones de '+s.name+' y has '+(gain>=0?'ganado':'perdido')+' <b>'+fmtE.format(Math.abs(gain))+'</b> (ya descontadas las comisiones de compra y venta).<br><br>'+
+    'Ahora esa ganancia o pérdida es <b>realizada</b>: ya es real. En España, las ganancias se declaran en la renta como <b>ganancia patrimonial</b> y pagan entre un 19 % y un 30 % según la cantidad (en el País Vasco, las diputaciones forales tienen su propia escala). Las pérdidas pueden restarse de otras ganancias.<br><br>'+
+    'Un truco legal en España: con los <b>fondos de inversión</b> puedes pasar el dinero de un fondo a otro (“traspaso”) sin pagar impuestos hasta que lo saques del todo.');
   render();save();
 }
 
@@ -294,6 +414,113 @@ function riskLabel(s){
 }
 
 function chgOver(s,n){const h=s.hist;const i=Math.max(0,h.length-1-n);return (s.price/h[i]-1)*100;}
+
+/* ---------- agente ---------- */
+const STOCK_IDS=BASE.filter(b=>b.id!=='IDX').map(b=>b.id);
+const STRATS={
+  idx:{name:'El pasivo',short:'Lo mete todo en el fondo índice y no vuelve a tocarlo nunca.'},
+  div7:{name:'El diversificador',short:'Reparte el dinero a partes iguales entre las 7 empresas y reequilibra cada año.'},
+  divi:{name:'El cazadividendos',short:'Compra empresas que pagan buen dividendo (banco, súper y farmacéutica) y reinvierte lo que cobra.'},
+  trend:{name:'El persigue-modas',short:'Cada mes vende lo que tiene y se pasa a la acción que más ha subido el último mes.'},
+  panic:{name:'El miedoso',short:'Compra el índice, pero lo vende todo si cae un 15 % y espera 6 meses para volver a entrar.'},
+  nerv:{name:'El trader nervioso',short:'Cada semana compra o vende algo según le da la corazonada.'},
+  bet:{name:'El apostador',short:'Lo apuesta todo a NeoBio Lab, la biotecnológica especulativa, y espera el pelotazo.'}
+};
+let agSel='idx', rngA=0;
+function agVal(){const A=S.ag;let v=A.cash;for(const id in A.pos)v+=A.pos[id]*stk(id).price;return v;}
+function agLog(t){S.ag.log.unshift({d:S.day,t});if(S.ag.log.length>200)S.ag.log.length=200;}
+function agBuy(id,eur){const A=S.ag,pr=stk(id).price;const q=Math.floor((Math.min(eur,A.cash)-FEE_FIX)/(pr*(1+FEE_PCT)));if(q<=0)return 0;
+  const c=q*pr,f=fee(c);if(c+f>A.cash+1e-9)return 0;A.cash-=c+f;A.fees+=f;A.trades++;A.pos[id]=(A.pos[id]||0)+q;return q;}
+function agSell(id){const A=S.ag,q=A.pos[id]||0;if(!q)return 0;const g=q*stk(id).price,f=Math.min(fee(g),g);A.cash+=g-f;A.fees+=f;A.trades++;delete A.pos[id];return g-f;}
+function agSellAll(){Object.keys(S.ag.pos).forEach(agSell);}
+function chg21(id){const h=stk(id).hist;return h[h.length-1]/h[Math.max(0,h.length-22)]-1;}
+function agDecide(){
+  const A=S.ag,t=S.day-A.start,nm=id=>stk(id).name;
+  switch(A.strat){
+    case 'idx':
+      if(t===0){agBuy('IDX',A.cash);agLog('Compro el Fondo Índice con todo el dinero. A partir de aquí no pienso tocar nada, pase lo que pase.');}
+      else if(t%DPY===0)agLog('Otro año más sin hacer nada. Ni miro las noticias: el tiempo trabaja por mí.');
+      break;
+    case 'div7':
+      if(t===0||t%DPY===0){
+        if(t>0){agSellAll();agLog('Ha pasado un año: unas empresas han subido más que otras. Reequilibro: vendo todo y vuelvo a repartir a partes iguales, para que ninguna pese demasiado.');}
+        else agLog('Reparto el dinero a partes iguales entre las 7 empresas. Si a una le va mal, las demás amortiguan el golpe.');
+        STOCK_IDS.forEach((id,i)=>agBuy(id,A.cash/(STOCK_IDS.length-i)));
+      }
+      break;
+    case 'divi':{
+      const L=['BCN','TXK','FRN'];
+      if(t===0){L.forEach((id,i)=>agBuy(id,A.cash/(L.length-i)));agLog('Compro Banco Cantábrico, Txoko Market y FarmaNorte: empresas maduras que reparten buenos dividendos cada trimestre.');}
+      else if(S.day%63===1&&A.cash>300){let low=L[0],lv=1e18;L.forEach(id=>{const v=(A.pos[id]||0)*stk(id).price;if(v<lv){lv=v;low=id;}});
+        const c=A.cash;if(agBuy(low,c))agLog('He cobrado dividendos y tengo '+fmtE.format(c)+' en efectivo. Los reinvierto en '+nm(low)+', la que menos peso tiene en mi cartera.');}
+      break;}
+    case 'trend':
+      if(t%21===0){
+        if(t===0){agBuy('IDX',A.cash);A.cur='IDX';agLog('Empiezo en el índice. Cada mes me pasaré a lo que más esté subiendo.');break;}
+        let best='IDX',br=-9;BASE.forEach(b=>{const r=chg21(b.id);if(r>br){br=r;best=b.id;}});
+        if(best!==A.cur){agSellAll();agBuy(best,A.cash);agLog(nm(best)+' ha subido un '+fmtP(br*100)+' este mes. ¡Está de moda! Vendo lo que tenía ('+nm(A.cur)+') y me paso a ella.');A.cur=best;}
+      }
+      break;
+    case 'panic':{
+      const pr=stk('IDX').price;
+      if(t===0){agBuy('IDX',A.cash);A.peak=pr;A.out=-1;agLog('Compro el índice. Pero si cae mucho, me salgo: no soporto ver pérdidas.');break;}
+      if(A.out<0){A.peak=Math.max(A.peak,pr);
+        if(pr<A.peak*0.85){agSellAll();A.out=S.day;A.sp=pr;agLog('¡El índice ha caído un 15 % desde su máximo! Me entra el pánico y lo vendo todo a '+fmtE.format(pr)+'. Esperaré 6 meses a que se calme.');}}
+      else if(S.day-A.out>=126){agBuy('IDX',A.cash);A.out=-1;A.peak=pr;
+        agLog('Han pasado 6 meses y me atrevo a volver. Recompro el índice a '+fmtE.format(pr)+' (vendí a '+fmtE.format(A.sp)+'): '+(pr<A.sp?'me ha salido bien, lo compro más barato.':'me ha salido mal, lo compro más caro de lo que vendí.'));}
+      break;}
+    case 'nerv':
+      if(t%5===0){
+        if(t===0){agBuy('IDX',A.cash/2);agLog('Meto la mitad en el índice para empezar. Pero no me voy a estar quieto…');break;}
+        const ids=Object.keys(A.pos);
+        if(ids.length&&Math.random()<0.5){const id=ids[Math.floor(Math.random()*ids.length)];agSell(id);agLog('Tengo un mal presentimiento con '+nm(id)+'. Lo vendo todo.');}
+        else{const id=BASE[Math.floor(Math.random()*BASE.length)].id;if(agBuy(id,Math.min(A.cash,2500)))agLog('Me da la corazonada de que '+nm(id)+' va a subir. Compro.');}
+      }
+      break;
+    case 'bet':
+      if(t===0){agBuy('NBL',A.cash);agLog('¡Todo a NeoBio Lab! Si su medicamento funciona, me hago rico.');}
+      else if(t%DPY===0){const v=agVal();agLog('Un año más con NeoBio. Mi apuesta vale ahora '+fmtE0.format(v)+'. '+(v>CASH0?'¡Sigo creyendo!':'Esto no pinta bien, pero ya no me puedo echar atrás.'));}
+      break;
+  }
+}
+function agentStep(userV){const A=S.ag;agDecide();A.pf.push(+agVal().toFixed(2));A.upf.push(+(userV*CASH0/A.uStart).toFixed(2));}
+function agStart(){
+  S.ag={strat:agSel,start:S.day,cash:CASH0,pos:{},fees:0,divs:0,trades:0,log:[],uStart:value(),pf:[],upf:[]};
+  agDecide();S.ag.pf.push(+agVal().toFixed(2));S.ag.upf.push(CASH0);
+  coach('agentOn','Tu rival automático 🤖',
+    'El agente <b>'+STRATS[agSel].name+'</b> empieza hoy con 10.000 € y jugará solo, en tu mismo mercado, cada vez que avances el tiempo. No tienes que hacer nada con él.<br><br>'+
+    'En su <b>diario</b> te contará cada decisión que toma y por qué. En el gráfico verás quién va ganando. Tu línea se muestra como si también hubieras empezado hoy con 10.000 €, para que la comparación sea justa.<br><br>'+
+    'Prueba distintos agentes en varias partidas: verás qué estrategias funcionan y cuáles no.');
+  render();save();
+}
+function renderAgent(){
+  const B=$('agBox');
+  if(!S.ag){
+    B.innerHTML='<div class="card"><h2>🤖 Elige un agente</h2><p class="small mute">Un inversor automático empezará con 10.000 € el día que lo actives y jugará solo, en tu mismo mercado, siguiendo su estrategia. Así podrás comparar tus decisiones con las suyas.</p>'+
+      Object.keys(STRATS).map(k=>'<button class="strat '+(k===agSel?'on':'')+'" data-s="'+k+'"><b>'+STRATS[k].name+'</b><span class="small mute">'+STRATS[k].short+'</span></button>').join('')+
+      '<button class="pri" id="agGo" style="width:100%;margin-top:4px">Activar agente</button></div>';
+    B.querySelectorAll('.strat').forEach(b=>b.onclick=()=>{agSel=b.dataset.s;renderAgent();});
+    $('agGo').onclick=agStart;
+    return;
+  }
+  const A=S.ag,av=agVal(),ar=(av/CASH0-1)*100,ur=(A.upf[A.upf.length-1]/CASH0-1)*100,days=S.day-A.start;
+  const k=(l,val,cl)=>`<div class="kpi"><div class="l">${l}</div><div class="v ${cl||''}">${val}</div></div>`;
+  const hold=Object.keys(A.pos).map(id=>A.pos[id]+' × '+stk(id).name).join(', ')||'Todo en efectivo';
+  const lead=days<1?'Acaba de empezar.':(av>A.upf[A.upf.length-1]?'🤖 Va ganando el agente.':'🙋 Vas ganando tú.');
+  B.innerHTML=`<div class="card"><div class="row"><h2 style="margin:0">🤖 ${STRATS[A.strat].name}</h2><span class="small mute">${(days/DPY).toFixed(1).replace('.',',')} años</span></div>
+    <p class="small mute">${STRATS[A.strat].short}</p>
+    <canvas id="cvAg"></canvas>
+    <div class="legend"><span><i style="background:var(--acc2)"></i>Agente</span><span><i style="background:var(--acc)"></i>Tú (como si empezaras con 10.000 € el mismo día)</span></div>
+    <div class="rng" id="rngAg"></div>
+    <p style="font-weight:600;margin-top:8px">${lead}</p>
+    <div class="grid">${k('Agente: vale',fmtE0.format(av))+k('Agente: rentabilidad',fmtP(ar),ar>=0?'up':'down')+k('Tú, mismo periodo',fmtP(ur),ur>=0?'up':'down')+k('Agente: comisiones',fmtE.format(A.fees),A.fees>0?'down':'')+k('Agente: operaciones',A.trades)+k('Agente: dividendos',fmtE.format(A.divs),A.divs>0?'up':'')}</div>
+    <p class="small" style="margin-top:10px"><b>Tiene:</b> ${hold}${A.cash>50&&Object.keys(A.pos).length?' + '+fmtE0.format(A.cash)+' en efectivo':''}</p></div>
+    <div class="card"><h2>📓 Diario del agente</h2><div class="log">${A.log.slice(0,60).map(e=>`<div class="e">${e.t}<div class="small mute">${fecha(e.d)}</div></div>`).join('')}</div></div>
+    <div class="card row"><span class="small mute">¿Probar con otro agente? Empezará de cero desde hoy.</span><button id="agChg">Cambiar</button></div>`;
+  rangeBtns($('rngAg'),rngA,r=>{rngA=r;renderAgent();});
+  drawChart($('cvAg'),[{data:lastN(A.pf,rngA),color:css('--acc2')},{data:lastN(A.upf,rngA),color:css('--acc'),dash:[5,4]}]);
+  $('agChg').onclick=()=>ask('¿Cambiar de agente?','El agente actual desaparecerá y podrás elegir otro, que empezará con 10.000 € desde hoy.',()=>{agSel=S.ag.strat;S.ag=null;render();save();});
+}
 
 /* ---------- gráficos ---------- */
 function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
@@ -330,6 +557,7 @@ function render(){
   if(!$('t-mercado').classList.contains('hidden'))renderMercado();
   if(!$('t-cartera').classList.contains('hidden'))renderCartera();
   if(!$('t-noticias').classList.contains('hidden'))renderLog();
+  if(!$('t-agente').classList.contains('hidden'))renderAgent();
 }
 
 function renderMercado(){
@@ -365,7 +593,13 @@ function renderMercado(){
   $('lista').innerHTML='<h2>Valores</h2>'+S.stocks.map(x=>{const c=chgOver(x,1),h=S.pos[x.id];return `<div class="it ${x.id===sel?'sel':''}" data-id="${x.id}">
     <div><div class="tk">${x.name}${h?' <span class="tag">'+h.qty+'</span>':''}</div><div class="small mute">${x.sector}</div></div>
     <div style="text-align:right" class="num"><div>${fmtE.format(x.price)}</div><div class="small ${c>=0?'up':'down'}">${fmtP(c)}</div></div></div>`;}).join('');
-  $('lista').querySelectorAll('.it').forEach(e=>e.onclick=()=>{sel=e.dataset.id;renderMercado();window.scrollTo({top:0,behavior:'smooth'});});
+  $('lista').querySelectorAll('.it').forEach(e=>e.onclick=()=>{sel=e.dataset.id;renderMercado();window.scrollTo({top:0,behavior:'smooth'});
+    if(sel!=='IDX') coach('firstStock','Una empresa concreta',
+      'Ahora estás viendo <b>'+stk(sel).name+'</b>, una sola empresa. Fíjate en tres datos de su ficha:<br><br>'+
+      '• <b>Riesgo</b>: cuánto suele subir y bajar su precio. Más riesgo = puedes ganar más, pero también perder mucho más.<br>'+
+      '• <b>Dividendo anual</b>: el porcentaje de su precio que reparte cada año a sus dueños. Las empresas que crecen rápido no suelen pagar; las maduras (bancos, supermercados) sí.<br>'+
+      '• <b>Últimos 12 meses</b>: cuánto ha subido o bajado en un año. Ojo: <b>que haya subido mucho no significa que vaya a seguir subiendo</b>.<br><br>'+
+      'El gráfico muestra la historia de su precio. Puedes cambiar el periodo con los botones 1M (un mes), 6M, 1A (un año)…');});
 }
 function updEst(){
   const s=stk(sel),q=Math.floor(+$('qty').value||0);
@@ -405,7 +639,7 @@ function renderLog(){
 /* ---------- UI ---------- */
 function tab(t){
   document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
-  ['mercado','cartera','noticias','aprende'].forEach(x=>$('t-'+x).classList.toggle('hidden',x!==t));
+  ['mercado','cartera','agente','noticias','aprende'].forEach(x=>$('t-'+x).classList.toggle('hidden',x!==t));
   if(t==='mercado')$('detalle').dataset.id='';
   render();
 }
@@ -416,17 +650,21 @@ function ask(t,b,ok){$('mT').textContent=t;$('mB').textContent=b;$('modal').clas
 document.querySelectorAll('[data-adv]').forEach(b=>b.onclick=()=>advance(+b.dataset.adv));
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>tab(b.dataset.tab));
 $('play').onclick=()=>{
-  if(playing){clearInterval(playing);playing=null;$('play').textContent='▶ Auto';$('play').classList.add('pri');}
+  if(playing) stopPlay();
   else{playing=setInterval(()=>advance(2),120);$('play').textContent='⏸ Pausa';$('play').classList.remove('pri');}
 };
+$('cOk').onclick=()=>{coachQ.shift();showCoach();};
+$('guideOn').onchange=e=>{S.guide=e.target.checked;save();if(!S.guide){coachQ=[];showCoach();}};
+$('guideReset').onclick=()=>{S.seen={};S.guide=true;$('guideOn').checked=true;save();toast('La guía volverá a explicarte todo desde el principio');};
 $('reset').onclick=()=>ask('¿Reiniciar la partida?','Perderás la cartera actual y empezarás con 10.000 € en un mercado nuevo.',()=>{newGame();sel='IDX';tab('mercado');save();toast('Nueva partida');});
 window.addEventListener('resize',()=>render());
 
 let lastSave=0;
-function save(){const now=Date.now();if(now-lastSave<1500)return;lastSave=now;try{localStorage.setItem('simBolsa1',JSON.stringify(S));}catch(e){}}
+function save(){const now=Date.now();if(now-lastSave<1500)return;lastSave=now;try{localStorage.setItem('simBolsa2',JSON.stringify(S));}catch(e){}}
 window.addEventListener('pagehide',()=>{lastSave=0;save();});
-try{const r=localStorage.getItem('simBolsa1');if(r){S=JSON.parse(r);}}catch(e){}
-if(!S||!S.stocks)newGame();
+try{const r=localStorage.getItem('simBolsa2');if(r){S=JSON.parse(r);}}catch(e){}
+if(!S||!S.stocks||!S.seen){S=null;newGame();}
+$('guideOn').checked=S.guide!==false;
 render();
 })();
 </script>
